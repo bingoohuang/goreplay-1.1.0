@@ -284,7 +284,6 @@ func (o *FileOutput) closeLocked() error {
 		}
 	}
 
-	o.closed = true
 	return nil
 }
 
@@ -292,7 +291,11 @@ func (o *FileOutput) closeLocked() error {
 func (o *FileOutput) Close() error {
 	o.Lock()
 	defer o.Unlock()
-	return o.closeLocked()
+
+	err := o.closeLocked()
+	o.closed = true
+
+	return err
 }
 
 // IsClosed returns if the output file is closed or not.
