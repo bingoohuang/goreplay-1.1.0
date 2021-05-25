@@ -111,3 +111,8 @@ build_packages:
 	go build -i -o /tmp/gor-build/gor
 	fpm $(FPMCOMMON) -a amd64 -t deb ./=/usr/local/bin
 	fpm $(FPMCOMMON) -a amd64 -t rpm ./=/usr/local/bin
+
+targz:
+	find . -name ".DS_Store" -delete
+	find . -type f -name '\.*' -print
+	cd .. && rm -f ${app}.tar.gz && tar czvf ${app}.tar.gz --exclude .git --exclude .idea ${app}
