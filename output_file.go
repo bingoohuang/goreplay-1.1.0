@@ -2,11 +2,14 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -15,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 )
 
 var dateFileNameFuncs = map[string]func(*FileOutput) string{
@@ -194,9 +198,10 @@ func (o *FileOutput) updateName() {
 }
 
 func (o *FileOutput) Write(data []byte) (n int, err error) {
+	meta := payloadMeta(data)
+
 	if o.requestPerFile {
 		o.Lock()
-		meta := payloadMeta(data)
 		o.currentID = meta[1]
 		o.payloadType = meta[0]
 		o.Unlock()
@@ -225,10 +230,12 @@ func (o *FileOutput) Write(data []byte) (n int, err error) {
 		o.queueLength = 0
 	}
 
-	n, _ = o.writer.Write(data)
+	metaConverted, body := convertData(data, meta)
+	n1, _ := o.writer.Write(metaConverted)
+	n2, _ := o.writer.Write(body)
 	nSeparator, _ := o.writer.Write([]byte(payloadSeparator))
 
-	n += nSeparator
+	n += n1 + n2 + nSeparator
 
 	o.totalFileSize += int64(n)
 	o.queueLength++
@@ -303,4 +310,87 @@ func (o *FileOutput) IsClosed() bool {
 	o.Lock()
 	defer o.Unlock()
 	return o.closed
+}
+
+func payloadPayload(payload []byte) (meta, body []byte) {
+	headerSize := bytes.IndexByte(payload, '\n')
+	return payload[:headerSize], payload[headerSize:]
+}
+
+func convertData(data []byte, meta [][]byte) (convertedMeta, body []byte) {
+	metaLine, body := payloadPayload(data)
+	if len(meta) <= 2 {
+		return metaLine, body
+	}
+
+	if nano, err := strconv.ParseInt(string(meta[2]), 10, 64); err == nil {
+		method, uri, _ := ParseRequestTitle(body[1:])
+		if u, _ := url.Parse(uri); u != nil {
+			uri = u.Path
+		}
+		return []byte(fmt.Sprintf("# Timestamp: %s Method: %s, Path: %s Meta: %s",
+			time.Unix(0, nano).Format(layout), method, uri, metaLine)), body
+	}
+
+	return metaLine, body
+}
+
+const (
+	//MinRequestCount GET / HTTP/1.1\r\n
+	MinRequestCount = 16
+	layout          = `2006-01-02 15:04:05.000000`
+)
+
+// ParseRequestTitle parses an HTTP/1 request title from payload.
+func ParseRequestTitle(body []byte) (method, uri string, ok bool) {
+	s := SliceToString(body)
+	if len(s) < MinRequestCount {
+		return "", "", false
+	}
+	titleLen := bytes.Index(body, []byte("\r\n"))
+	if titleLen == -1 {
+		return "", "", false
+	}
+	if strings.Count(s[:titleLen], " ") != 2 {
+		return "", "", false
+	}
+	method = string(Method(body))
+
+	if !HttpMethods[method] {
+		return method, "", false
+	}
+	pos := strings.Index(s[len(method)+1:], " ")
+	if pos == -1 {
+		return method, "", false
+	}
+	uri = s[len(method)+1 : pos]
+	major, minor, ok := http.ParseHTTPVersion(s[pos+len(method)+2 : titleLen])
+	return method, uri, ok && major == 1 && (minor == 0 || minor == 1)
+}
+
+// Method returns HTTP method
+func Method(payload []byte) []byte {
+	end := bytes.IndexByte(payload, ' ')
+	if end == -1 {
+		return nil
+	}
+
+	return payload[:end]
+}
+
+var HttpMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodPost:    true,
+	http.MethodPut:     true,
+	http.MethodPatch:   true,
+	http.MethodDelete:  true,
+	http.MethodConnect: true,
+	http.MethodOptions: true,
+	http.MethodTrace:   true,
+}
+
+// SliceToString preferred for large body payload (zero allocation and faster)
+func SliceToString(buf []byte) string {
+	return *(*string)(unsafe.Pointer(&buf))
 }
