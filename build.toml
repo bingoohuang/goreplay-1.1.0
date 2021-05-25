@@ -13,11 +13,12 @@ cmdTimeout = "30s"
 globalRemote = true
 
 cmds = [
+    "%local basename $PWD => @App",
     "%local make targz",
-    "rm -fr bingoohuang/goreplay*",
-    "%ul ../goreplay.tar.gz bingoohuang/",
-    "cd bingoohuang && tar zxf goreplay.tar.gz && cd goreplay",
+    "rm -fr bingoohuang/@App*",
+    "%ul ../@App.tar.gz bingoohuang/",
+    "cd bingoohuang && tar zxf @App.tar.gz && cd @App",
     "go16 install -ldflags=\"-s -w\" ./...",
     "upx --best --lzma  `which goreplay`",
-    "goreplay -v",
+    "goreplay -h 2>&1 | head -5 | tail -1",
 ]

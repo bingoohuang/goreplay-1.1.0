@@ -93,7 +93,12 @@ type AppSettings struct {
 var Settings AppSettings
 
 func usage() {
-	fmt.Printf("Gor is a simple http traffic replication tool written in Go. Its main goal is to replay traffic from production servers to staging and dev environments.\nProject page: https://github.com/buger/gor\nAuthor: <Leonid Bugaev> leonsbox@gmail.com\nCurrent Version: v%s\n\n", VERSION)
+	fmt.Printf(`Goreplay is a simple http traffic replication tool written in Go. 
+Its main goal is to replay traffic from production servers to staging and dev environments.
+Project page: https://github.com/bingoohuang/goreplay-1.1.0
+Author: <Leonid Bugaev> leonsbox@gmail.com
+Current Version: v%s
+`, VERSION)
 	flag.PrintDefaults()
 	os.Exit(2)
 }
