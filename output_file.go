@@ -328,7 +328,7 @@ func convertData(data []byte, meta [][]byte) (convertedMeta, body []byte) {
 		if u, _ := url.Parse(uri); u != nil {
 			uri = u.Path
 		}
-		return []byte(fmt.Sprintf("# Timestamp: %s Method: %s, Path: %s Meta: %s",
+		return []byte(fmt.Sprintf("# Timestamp: %s Method: %s Path: %s Meta: %s",
 			time.Unix(0, nano).Format(layout), method, uri, metaLine)), body
 	}
 
