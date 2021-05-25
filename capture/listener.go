@@ -14,7 +14,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -325,7 +324,7 @@ func (t *Listener) readPcap() {
 		log.Fatal(err)
 	}
 
-	const BPFSupported = runtime.GOOS != "darwin"
+	const BPFSupported = true
 
 	var wg sync.WaitGroup
 	wg.Add(len(devices))
